@@ -206,6 +206,10 @@ residus5 <- yTest-yEstime5
 compute_rmse(residus5)
 
 
+
+
+
+
 ```
 
 TEST Residus
@@ -264,12 +268,75 @@ pacfSerie <- pacf(
 
 ```
 
+```{r}
+library(forecast)
+fitBest <- auto.arima(diffdataSeriesTwo)
+#(fit <- arima(diffdataSeriesTwo, order=c(12,1,)))
+summary(fitBest)
+checkresiduals(fitBest)
+
+#yEstime6 <- predict(fitBest, newdata = dataTest)
+#residus6 <- yTest-yEstime6
+#compute_rmse(residus6)
+
+
+myforecasts <- forecast::forecast(elecequip_sarima2, h=40) 
+
+
+#plot(forecast((fitBest)))
+
+
+
+```
+```{r}
+# correctly specify the series 
+#elecequip_ts <- ts(elecequip, frequency=12, start=c(1996, 1), end = c(2012,3))
+
+# split the data into train and test 
+#elecequip_train <- window(elecequip_ts, end=c(2010,12))
+#elecequip_test <- window(elecequip_ts, start=c(2011,1)) 
+
+
+# train sarima model 
+elecequip_sarima2 = auto.arima(dataSeriesTwo,
+                              stepwise=FALSE,
+                              approximation=FALSE,
+                              seasonal=TRUE, # This will extent to SARIMA
+                              allowdrift=FALSE, 
+                              parallel = TRUE,  # speeds up computation, but tracing not available
+                              trace=FALSE)
+
+## produce forecasts 
+myforecasts <- forecast::forecast(elecequip_sarima2, h=40) 
+
+## plot the forecasts
+#autoplot(myforecasts) + autolayer(elecequip_ts) + xlim(2005,2013) 
+```
 
 
 
 ```{r}
 
 
+# ComplÃ©ment : rÃ©gression linÃ©aire
+n <- length(diffdataSeriesTwo)
+y <- diffdataSeriesTwo
+X <- matrix(0, ncol=2, nrow=n-13)
+yobs <- y[3:(n-11)] 
+X[,1] <- y[2:(n-12)]
+X[,2] <- y[1:(n-13)] 
+
+reg <- lm(yobs ~ . - 1, data=data.frame(X))
+summary(reg)
+
+beta1 <- reg$coeff[1]
+beta2 <- reg$coeff[2]
+
+ypred.lm <- rep(0,11)
+
+for (k in 1:11) {
+  ypred.lm[k] <- mu + beta1*(y[n-11+k-1] - mu) + beta2*(y[n-11+k-2] - mu)
+}
 
 
 
