@@ -1,0 +1,283 @@
+---
+title: 'TP UP1 - Maxence Caille'
+author: "Maxence Caille"
+output:
+  word_document: default
+---
+#Q1)
+
+**Import des données et rapide exploration**
+```{r}
+data <- read.table("Data_app.txt", header=TRUE)
+names(data)
+head(data)
+summary(data)
+```
+**Tracer des 3 séries**
+```{r}
+plot(data)
+
+par(mfrow=c(2,2))
+plot(as.Date(data$date),data$kwh,col="blue" )
+title("kwh au cours du temps")
+plot(as.Date(data$date),data$cldd,col="red")
+title("cldd au cours du temps (discret)")
+plot(as.Date(data$date),data$htdd)
+title("htdd au cours du temps")
+
+plot(as.Date(data$date),data$kwh,col="blue" )
+points(as.Date(data$date),data$cldd,col="red")
+points(as.Date(data$date),data$htdd)
+title("Superposition")
+
+dataTemp <- ts(data, start = c(2006,1), frequency=12)
+plot(dataTemp)
+
+#htdd <- dataTemp[,"htdd"]
+#cldd <- dataTemp[,"cldd"]
+#kwh <- dataTemp[,"kwh"]
+#date <-dataTemp[,"date"]
+
+```
+
+
+On constate que :
+- Globalement la consommation en électricité est en augmentation de façon linéaire entre 2006 et 2020.Après une brève exploration des données, on constate que la consommation en electricité  est maximale annuelle est généralement lors du mois de juillet. 
+- La demande en énergie pour climatiser est basse (souvent nulle) pendant les mois froids et est à son maximum pendant les mois chaud.
+- A l'inverse la demande en énergie pour chauffer est à son maximum pendant les mois froids et est basse pendant les mois chaud.
+La contraiment à la consommation en électricité, les valeurs htdd et cldd n'augment pas de façon linéaire au cours du temps. Par exemple, les valeurs maximales de cldd sont toutes entre 246 et 267 à partir de 2012 et la valeur minimale 0 est atteinte au moins une fois par an.
+Les remarques précentes sont cohérentes avec la connaissance que nous avons du sujet. Il est logique que nous utilisons plus la climatisation pendant l'été et plus de chauffage pendant l'hivers. De même, on sait que notre consommation électrique augmente chaque années depuis plus de 20 ans (sauf peut être cet hivers ?!).
+
+#Q2)
+
+
+**Choix de notre modèle (relation entre les données temporelles exclues)**
+
+***Définition d'un premier modèle***
+
+Pour trouver notre modèle idéal nous allons procédé en utilisant la méthode "step wise": 
+- On ajoute un nouveau prédicteur au modèle
+- On regarde les résultats des test de Student pour chaque prédicteur
+- Après réexamination, si des prédicteurs ne sont plus significatif (on décide dans ce tp que l'on rejettera l'hypothèse testée à 95% donc la p-valeur du test de Student doit être < 0,05 , on retire du modèle la moins significative d'entres elles.
+
+Le processus s'arrête quand plus aucun prédicteur ne puisse être introduite ni retirer du modèle.
+
+On considère ici que Etant donné que nous n'avons que deux variables(htdd et cldd) dans notre cas. Cette méthode est donc assez intuitive. Nous allons la réaliser de manière manuelle. Mais si nous avions eu beaucoup de variable nous aurions pu utiliser la fonction step() de R. 
+
+```{r}
+
+
+#on commence notre regression avec le prédicteur htdd uniquement 
+lm0.fit <- lm(kwh ~ htdd  )
+
+#On ajoute le prédicteur cldd
+lm1.fit <- lm(kwh ~ htdd + cldd )
+
+#On compare les trois modèles
+
+#On ajoute le prédicteur date
+lm2.fit <- lm(kwh ~ date + htdd + cldd)
+
+
+
+summary(lm0.fit)
+summary(lm1.fit)
+summary(lm2.fit)
+compute_rmse(lm0.fit$residuals)
+compute_rmse(lm1.fit$residuals)
+compute_rmse(lm2.fit$residuals)
+```
+On constate que le modèle lm2.fit a une RMSE plus faible, un R^2 ajusté plus éleve et les prédicteurs sont tous considérés comme significatifs càd ont eu une p-value < 0,05 au test de student si on se place dans un test à 95% On voit que le prédicteur cldd bien plus significatif que htdd.Le modèle lm2.fit "passe" aussi le test du F1 (hypothèse nulle que tous les coefficients des prédicteurs sont nulles).
+Le modèle lm2.fit est donc "meilleur" que le modèle lm1.fit et le modèle lm2.fit
+En regardant les coefficients des prédicteurs. On voit que le prédicteur temps a un plus "fort impact" sur kwh que htdd et cldd. Cela veut dire que dans notre modèle la consommation électrique est plus impactée par une augmentation du prédicteur temps qu'une augmentation du chauffage/climatisation.
+
+***Analyse en détail des résidues du modèle sélectionné***
+```{r}
+par(mfrow=c(2,2))
+plot(lm2.fit)
+```
+
+Avec les graphiques produits avec les commandes précédentes on peut tirer les analyses suivantes.
+
+**Scale-Location**
+- Ce graphique nous permet d'évaluer une des hypothèses du  modèle de régresion linéaire : l'homoscédasticité. Si la droite rouge est horizontal cela veut que notre variance est constante. On peut voir que la droite n'est pas parfaitement horizontal , on a donc une légère situation d'hétéroscédasticité.
+
+On peut tester cela avec le test de Breusch-Pagan:
+
+```{r}
+library(lmtest)
+lmtest::bptest(lm2.fit)
+```
+L'interprétation du test de Breusch-Pagan pour l'hétéroscédasticité est simple. L'hypothèse nulle (H0) est : l'homostacité est présente. Comme la statistique de test (BP) est petite (=0.2873) et que la valeur p n'est pas significative (c'est-à-dire >0.05), nous ne rejetons pas l'hypothèse nulle (il n'y a pas d'évidence nette pour que H0 soit fausse). 
+
+**Residual vs Fitted** : 
+- si notre modèle de regression multiple modéliser parfaitement nos données (càd une realtion linéaire dans les données) on devrait avoir une ligne rouge droite. Or ce n'est pas le cas, il y a donc un pattern de non linéarité dans les données. 
+- On peut ici aussi constater un léger phénomène d'hétéroscédacité.
+
+
+**Residual vs Leverage**
+- Ce graphique nous aide à identifier les points influents.Toutes les valeurs aberrantes ne sont pas influentes dans l'analyse de régression linéaire. En effet, même si les données présentent des valeurs extrêmes, elles peuvent ne pas être influentes pour déterminer une ligne de régression. Cela signifie que les résultats ne seraient pas très différents si nous les incluons ou les excluons de l'analyse. D'autre part, certains points pourraient être très influents même s'ils semblent se situer dans une fourchette raisonnable de valeurs. Ils peuvent être des cas extrêmes par rapport à une ligne de régression et peuvent modifier les résultats si nous les excluons de l'analyse. Dans notre cas, on ne voit même pas la ligne de Cook. Cela veut dire qu'il n'y a aucun points influents. 
+
+Par précaution, on regarde les trois valeurs les plus influentes :
+```{r}
+data[c(7,168,163),]
+```
+On constate que ces valeurs ne sont pas abérantes.
+
+**Normal Q-Q**
+- Ce graphique montre si les résidus sont normalement distribués. On constate qu'il y a une très léger effet de "lighter tail". Cela signifie que par rapport à la distribution normale, il y a un peu plus de données situées aux extrêmes de la distribution et moins de données au centre de la distribution. Mais celui-ci reste très minime car la majorité des points collent bien à la droite du Q-Q plot.
+
+```{r}
+plot(lm2.fit$residuals)
+
+
+```
+On voit aussi que les résidus bruts sont influencé par leur index càd sont influencé par le temps étant donné que les index sont en fonction du temps.
+
+
+***Résolution des problèmes identifiés***
+Pour résoudre les problème identifiés précedement nous avons quelques solutions:
+- Pour le problème d'hétéroscédasticité: On peut transformer la prédiction kwh avec une fonction concave com log() ou sqrt(). Ces fonctions réduisent de manière plus importante les reponses qui ont une valeur élevées, ce qui réduit l'hétéroscédascité.
+- Pour résoudre le problème non linéarité des données. On peut appliquer des transformations non linéaires (X^2 , srqt(X), log X...) à nos prédicteurs. Au vu de la forme en forme de U de la droite rouge du plot fitted vs residuals. La transformation la plus pertinente me semble être un X^2.
+
+
+Suite aux problèmes identifiés, j'ai testé d'autres modèle de regression linéaire multiples. La méthodologie pour les analyser/comparer est la même que celle qui a été utilisée pour "lm2.fit".
+
+
+
+
+Les modèles testés ne sont pas meilleurs et sont plus complexe que lm2.fit. Nous allons pouvoir créer un meilleur modèle en ajoutant la temporalité.
+
+
+
+
+Création du jeu de donner pour entrainer nos modèles et celui pour les tester. Je décide de séparer mon jeu au niveau de l'année 2019.
+```{r}
+
+dataTrainBrut <- dataTemp[1:156,]
+dataTestBrut <- dataTemp[145:168,]
+#[157:168,]
+dataTrain <- ts(dataTrainBrut, start = c(2006,1), frequency=12)
+dataTest <- ts(dataTestBrut, start = c(2019,1), frequency=12)
+
+yTest <- dataTemp[157:168,2]
+
+plot(dataTrain)
+plot(dataTest)
+
+
+```
+
+
+**Creation fonction RMSE pour évaluer nos modèles**
+
+```{r}
+#la fonction attend comme paramètre la somme des résidus. Dans notre cas , ils sont accessibles via la commande modele_regression$residuals
+
+compute_rmse <- function(x){
+  sqrt(mean(x^2))
+}
+
+```
+
+
+```{r}
+
+lm2.fit <- lm(kwh ~ date + htdd + cldd, data = dataTrain)
+yEstime2 <- predict(lm2.fit, newdata = dataTest)
+residus2 <- yTest-yEstime2
+compute_rmse(residus2)
+
+lm3.fit <- lm(kwh ~ cldd + date + cldd + I(date^2), data= dataTrain )
+yEstime3 <- predict(lm3.fit, newdata = dataTest)
+residus3 <- yTest-yEstime3
+compute_rmse(residus3)
+
+lm4.fit <- lm(log(kwh) ~ cldd + date + cldd + I(date^2), data= dataTrain )
+yEstime4 <- predict(lm4.fit, newdata = dataTest)
+yEstime4 <- exp(yEstime4)
+residus4 <- yTest-yEstime4
+compute_rmse(residus4)
+
+lm5.fit <- lm(sqrt(kwh) ~ cldd + date + cldd  + I(date^2), data= dataTrain )
+yEstime5 <- predict(lm5.fit, newdata = dataTest)
+yEstime5 <- yEstime5^2
+residus5 <- yTest-yEstime5
+compute_rmse(residus5)
+
+
+```
+
+TEST Residus
+
+
+
+
+
+
+
+*Q4*
+
+On constate un périodicité.
+```{r}
+
+# Stationnarisation par diffÃ©renciation simple et visualisation
+
+dataTempTwo <- data[, 2]
+dataSeriesTwo <- ts(data=dataTempTwo, start = c(2006,1), freq=12 )
+diffdataSeriesTwo<- diff(dataSeriesTwo)
+mu <- mean(diffdataSeriesTwo)
+
+op <- par(mfrow = c(2,1), mex=0.9)
+plot(diffdataSeriesTwo, type='o', main = expression(paste("Série différenciée ")),
+     xlab="Temps", ylab = expression(y[t]))
+abline(h=mu, col="red", lwd=2)
+plot(dataSeriesTwo, type='l', xlab="Temps", ylab="kwh",
+     main="Série initiale kwh",cex.main=1)
+
+grid()
+
+
+```
+
+
+```{r}
+
+# Bien sÃ»r, une fonction R fait cela directement:
+lag.plot(diffdataSeriesTwo,12, layout=c(2,6), diag.col="red")
+
+
+```
+
+
+
+```{r}
+acfSerie <- acf( as.vector(diffdataSeriesTwo), lag=20, ylim = c(-1,1), 
+          main = expression(paste("ACF empirique de la sÃ©rie ", y[t])), xlab="DÃ©calage h", lwd=2)
+
+
+pacfSerie <- pacf(
+  
+   as.vector(diffdataSeriesTwo), lag=20, ylim = c(-1,1), 
+          main = expression(paste("PACF empirique de la sÃ©rie ", y[t])), xlab="DÃ©calage h", lwd=2
+)
+
+```
+
+
+
+
+```{r}
+
+
+
+
+
+
+```
+
+
+```{r}
+ PRENSER A RE ENTRAINE RLE MODELE !!!!!!!!!!!!!!!!!
+```
+
