@@ -155,7 +155,7 @@ Création du jeu de donner pour entrainer nos modèles et celui pour les tester.
 ```{r}
 
 dataTrainBrut <- dataTemp[1:156,]
-dataTestBrut <- dataTemp[145:168,]
+dataTestBrut <- dataTemp[157:168,]
 #[157:168,]
 dataTrain <- ts(dataTrainBrut, start = c(2006,1), frequency=12)
 dataTest <- ts(dataTestBrut, start = c(2019,1), frequency=12)
@@ -270,7 +270,9 @@ pacfSerie <- pacf(
 
 ```{r}
 library(forecast)
-fitBest <- auto.arima(diffdataSeriesTwo)
+
+diffSerie <- diff(dataTrain)
+fitBest <- auto.arima(dataTrain[,2])
 #(fit <- arima(diffdataSeriesTwo, order=c(12,1,)))
 summary(fitBest)
 checkresiduals(fitBest)
@@ -280,14 +282,25 @@ checkresiduals(fitBest)
 #compute_rmse(residus6)
 
 
-myforecasts <- forecast::forecast(elecequip_sarima2, h=40) 
 
 
-#plot(forecast((fitBest)))
+myforecasts <- forecast::forecast(fitBest, h=12) 
+yEstime6 <- myforecasts$mean
+residus6 <- yTest-yEstime6
+compute_rmse(residus6)
+
+yEstime7 <- (yEstime6 + yEstime5)/2
+residus7 <- yTest-yEstime7
+compute_rmse(residus7)
 
 
 
 ```
+
+
+
+
+
 ```{r}
 # correctly specify the series 
 #elecequip_ts <- ts(elecequip, frequency=12, start=c(1996, 1), end = c(2012,3))
