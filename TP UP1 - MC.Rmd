@@ -33,10 +33,10 @@ title("Superposition")
 dataTemp <- ts(data, start = c(2006,1), frequency=12)
 plot(dataTemp)
 
-#htdd <- dataTemp[,"htdd"]
-#cldd <- dataTemp[,"cldd"]
-#kwh <- dataTemp[,"kwh"]
-#date <-dataTemp[,"date"]
+htdd <- dataTemp[,"htdd"]
+cldd <- dataTemp[,"cldd"]
+kwh <- dataTemp[,"kwh"]
+date <-dataTemp[,"date"]
 
 ```
 
@@ -83,9 +83,7 @@ lm2.fit <- lm(kwh ~ date + htdd + cldd)
 summary(lm0.fit)
 summary(lm1.fit)
 summary(lm2.fit)
-compute_rmse(lm0.fit$residuals)
-compute_rmse(lm1.fit$residuals)
-compute_rmse(lm2.fit$residuals)
+
 ```
 On constate que le modèle lm2.fit a une RMSE plus faible, un R^2 ajusté plus éleve et les prédicteurs sont tous considérés comme significatifs càd ont eu une p-value < 0,05 au test de student si on se place dans un test à 95% On voit que le prédicteur cldd bien plus significatif que htdd.Le modèle lm2.fit "passe" aussi le test du F1 (hypothèse nulle que tous les coefficients des prédicteurs sont nulles).
 Le modèle lm2.fit est donc "meilleur" que le modèle lm1.fit et le modèle lm2.fit
@@ -181,6 +179,7 @@ compute_rmse <- function(x){
 ```
 
 
+Je teste les différentes améliorations suggérées précédmeent (transofmation ^2 , sqrt, log). Et je compare les modèles en calculant le RMSE.
 ```{r}
 
 lm2.fit <- lm(kwh ~ date + htdd + cldd, data = dataTrain)
@@ -211,24 +210,52 @@ compute_rmse(residus5)
 
 
 ```
+D'après les résultats, lm5.fit est notre meilleur modèle.
 
-TEST Residus
+```{r}
+summary(lm5.fit)
+plot(lm5.fit)
 
-
-
-
-
-
+```
+On voti que tous les prédicteurs sont significatifs. Le F-statistic est très haut. On constate aussi que sur le graphe Fitted vs Residuals, notre modèle est meilleur car la "droite rouge" est bien horizontale (vs la forme en U du mdèle lm2.fit).La seule chose qui est "moins" bien est l'effet "lighter tail" qui est un peu plus accentué (vs lm2.fit).
 
 *Q4*
 
-On constate un périodicité.
-```{r}
 
-# Stationnarisation par diffÃ©renciation simple et visualisation
+
+```{r}
 
 dataTempTwo <- data[, 2]
 dataSeriesTwo <- ts(data=dataTempTwo, start = c(2006,1), freq=12 )
+
+
+acfSerie <- acf( as.vector(dataSeriesTwo), lag=20, ylim = c(-1,1), 
+          main = expression(paste("ACF empirique de la série ", y[t])), xlab="Décalage h", lwd=2)
+
+
+pacfSerie <- pacf(
+  
+   as.vector(dataSeriesTwo), lag=20, ylim = c(-1,1), 
+          main = expression(paste("PACF empirique de la série ", y[t])), xlab="Décalage h", lwd=2
+)
+
+```
+Je constate que la série n'est pas stationnaire car les valeurs sur le graphique de l'ACF ne décroissent pas.
+Une façon de déterminer plus objectivement si la différenciation est nécessaire est d'utiliser un test de racine unitaire.
+Je fais un test de Dickey-Fuller augmenté. 
+
+```{r}
+library(tseries)
+adf.test(dataTempTwo)
+
+```
+On voit qu la p-valeur associée au test de Dicker-Fuller augmenté est 0.3065 . Par conséquent, on ne peut pas rejeter l'hypothèse null H0 (car p-valeur>0.05). La série est bien "non stationnaire".
+
+Je vais stationnariser la série en faisant une différenciation simple.
+
+```{r}
+
+
 diffdataSeriesTwo<- diff(dataSeriesTwo)
 mu <- mean(diffdataSeriesTwo)
 
@@ -243,39 +270,56 @@ grid()
 
 
 ```
-
+On peut refaire un test de Dicker-Fuller augmenté sur cette série différenciée.
 
 ```{r}
 
-# Bien sÃ»r, une fonction R fait cela directement:
-lag.plot(diffdataSeriesTwo,12, layout=c(2,6), diag.col="red")
 
+adf.test(diffdataSeriesTwo)
 
 ```
+La p-valeur est >0.05, on rejette H0 : la série est bien stationnaire.
 
+```{r}
+lag.plot(diffdataSeriesTwo,12, layout=c(2,6), diag.col="red")
+```
+On observe de fortes variations saisonnières et une autocorrélation forte au lag 12, ce qui m'a orienté à utiliser un modèle saisonnier
 
 
 ```{r}
-acfSerie <- acf( as.vector(diffdataSeriesTwo), lag=20, ylim = c(-1,1), 
-          main = expression(paste("ACF empirique de la sÃ©rie ", y[t])), xlab="DÃ©calage h", lwd=2)
+
+acfSerieDiff <- acf( as.vector(diffdataSeriesTwo), lag=50, ylim = c(-1,1), 
+          main = expression(paste("ACF empirique de la série ", y[t])), xlab="Décalage h", lwd=2)
 
 
-pacfSerie <- pacf(
+pacfSerieDiff <- pacf(
   
-   as.vector(diffdataSeriesTwo), lag=20, ylim = c(-1,1), 
-          main = expression(paste("PACF empirique de la sÃ©rie ", y[t])), xlab="DÃ©calage h", lwd=2
+   as.vector(diffdataSeriesTwo), lag=50, ylim = c(-1,1), 
+          main = expression(paste("PACF empirique de la série ", y[t])), xlab="Décalage h", lwd=2
 )
 
+
 ```
+
+La fonction d’autocorrélation présente des pics significatifs pour le premier retard et pour les retards aux pas multiples de 12. La fonction d’autocorrélation partielle une décroissance sinusoïdale amortie. Nous pouvons donc penser à un modèle du type SARIMA(p,d,q)(P,D,Q)[S]
+
+S = 12 car on a une sésonnalité d'un an (cf graphe lag)
+p =0 
+d=1 car pour obtenir la serie differencie nous avons juste fait un difference de deux termes consécutifs. 
+Comme les pics aux retards multiples de 12 ne semblent pas décroître exponentiellement je suppose que D != 0.Pour éviter de considérer des modèles trop complexes, il est généralement conseillé de satisfaire la condition d+D ≤ 2 (c’est-à-dire nous restreindre ici au cas D = 1).
+
+On a donc le modèle suivant : SARIMA(p,1,q)(P,1,Q)[12]. Pour définir les paramètres p,q,P et Q, je vais préférer utiliser la fonction auto.arima qui va tester les différents modèles candidates. Il aurait été possible d'analyser par moi même les différents modèles via des PACF/ACF et comparer les modèles en essayant de minimiser un critère comme l'AIC ou l'AICc ou le BIC. Mais pour garder le compte rendu succinct je vais utiliser cette méthode automatisé.
+
+
 
 ```{r}
 library(forecast)
 
-diffSerie <- diff(dataTrain)
-fitBest <- auto.arima(dataTrain[,2])
+fitBest <- auto.arima(dataTrain[,2], D= 1, d=1, approximation = FALSE, seasonal = TRUE)
+#fitBest <- auto.arima(dataTrain[,2])
 #(fit <- arima(diffdataSeriesTwo, order=c(12,1,)))
 summary(fitBest)
-checkresiduals(fitBest)
+#checkresiduals(fitBest)
 
 #yEstime6 <- predict(fitBest, newdata = dataTest)
 #residus6 <- yTest-yEstime6
@@ -295,66 +339,21 @@ compute_rmse(residus7)
 
 
 
-```
+yEstime9 <- (yEstime4 + yEstime5)/2
+residus9 <- yTest-yEstime9
+compute_rmse(residus9)
 
 
-
-
-
-```{r}
-# correctly specify the series 
-#elecequip_ts <- ts(elecequip, frequency=12, start=c(1996, 1), end = c(2012,3))
-
-# split the data into train and test 
-#elecequip_train <- window(elecequip_ts, end=c(2010,12))
-#elecequip_test <- window(elecequip_ts, start=c(2011,1)) 
-
-
-# train sarima model 
-elecequip_sarima2 = auto.arima(dataSeriesTwo,
-                              stepwise=FALSE,
-                              approximation=FALSE,
-                              seasonal=TRUE, # This will extent to SARIMA
-                              allowdrift=FALSE, 
-                              parallel = TRUE,  # speeds up computation, but tracing not available
-                              trace=FALSE)
-
-## produce forecasts 
-myforecasts <- forecast::forecast(elecequip_sarima2, h=40) 
-
-## plot the forecasts
-#autoplot(myforecasts) + autolayer(elecequip_ts) + xlim(2005,2013) 
-```
-
-
-
-```{r}
-
-
-# ComplÃ©ment : rÃ©gression linÃ©aire
-n <- length(diffdataSeriesTwo)
-y <- diffdataSeriesTwo
-X <- matrix(0, ncol=2, nrow=n-13)
-yobs <- y[3:(n-11)] 
-X[,1] <- y[2:(n-12)]
-X[,2] <- y[1:(n-13)] 
-
-reg <- lm(yobs ~ . - 1, data=data.frame(X))
-summary(reg)
-
-beta1 <- reg$coeff[1]
-beta2 <- reg$coeff[2]
-
-ypred.lm <- rep(0,11)
-
-for (k in 1:11) {
-  ypred.lm[k] <- mu + beta1*(y[n-11+k-1] - mu) + beta2*(y[n-11+k-2] - mu)
-}
-
-
+yEstime10 <- (yEstime4 + yEstime5 + yEstime6)/3
+residus10 <- yTest-yEstime10
+compute_rmse(residus10)
 
 
 ```
+
+
+
+
 
 
 ```{r}
