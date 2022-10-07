@@ -353,22 +353,22 @@ compute_rmse(residus7)
 On obtient donc un modèle SARIMA(0,1,2)(0,1,1)[12]. Sa RMSE est plus élevée que celle obtenue avec le modèle lm5.fit. 
 
 
-Je vais essayer de combiener les résultats de ces deux modèles.
+Je vais essayer de combiner les résultats de ces deux modèles.Je mets un poids plus important pour les modèles de regression linéaire car leur RMSE était plus faible.
 
 
 ```{r}
 
 
-yEstimeFinal <- (yEstime3 + yEstime5 + yEstime7 )/3
+yEstimeFinal <- ((yEstime3 + yEstime5)*2 + yEstime7 )/5
 residus7 <- yTest - yEstimeFinal
 compute_rmse(residus7)
 
 
-
 ```
+On obtient un RMSE très faible : 4.9 . 
+
 **Modèle final**
 
-On obtient une faible RMSE : 5,6 . Si j'ajoute le modèle lm6.fit on descend à 4 mais je préfère ne pas l'ajouter car ce modèle contient des prédicteurs non significatif.
 On entraine notre modèle final:
 
 ```{r}
@@ -395,17 +395,17 @@ data.final.train.sarima <- ts(data.app.brut[,2], start = c(2006,1), frequency=12
 #training
 lm3.fit <- lm(kwh ~ htdd + date + cldd + I(date^2), data= data.final.ts.train)
 lm5.fit <- lm(sqrt(kwh) ~ htdd +  date + cldd  + I(date^2) , data= data.final.ts.train )
-sarimaModel <- auto.arima(data.final.train.sarima, D= 1, d=1, approximation = FALSE, seasonal = TRUE)
+sarimaModelFinal <- auto.arima(data.final.train.sarima, D= 1, d=1, approximation = FALSE, seasonal = TRUE)
 
 
 #prediction
-yEstime.final.3 <- predict(lm3.fit, newdata = data.final.ts.test)
+yEstimefinal.3 <- predict(lm3.fit, newdata = data.final.ts.test)
 yEstimefinal.5 <- predict(lm5.fit, newdata = data.final.ts.test)
 yEstimefinal.5  <- yEstimefinal.5^2
-forecasts.final <- forecast::forecast(sarimaModel, h=12) 
+forecasts.final <- forecast::forecast(sarimaModelFinal, h=12) 
 yEstimefinal.7 <- forecasts.final$mean
 
-yPreditfinal <- (yEstime.final.3+ yEstimefinal.5 + yEstimefinal.7)/3
+yPreditfinal <- ((yEstimefinal.3+ yEstimefinal.5)*2 + yEstimefinal.7)/5
 
 
 ```
@@ -413,8 +413,8 @@ yPreditfinal <- (yEstime.final.3+ yEstimefinal.5 + yEstimefinal.7)/3
 
 ```{r}
 
-
-
-
+print(yEstime.final.3)
+print(yEstimefinal.5)
+print(yEstimefinal.7)
 ```
 
