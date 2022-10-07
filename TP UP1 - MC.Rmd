@@ -381,10 +381,9 @@ data.test <- read.table("Data_test.txt", header=TRUE)
 data.final <- rbind(data.app, data.test)
 
 #pour modèle regression multiples
+data.final.ts.train <- ts(data.app.brut, start = c(2006,1), frequency=12)
 data.final.ts <- ts(data.final, start = c(2006,1), frequency=12)
-data.final.ts.train.brut <- data.final.ts[1:168,]
 data.final.ts.test.brut <- data.final.ts[169:180,]
-data.final.ts.train <- ts(data.final.ts.train.brut, start = c(2006,1), frequency=12)
 data.final.ts.test <- ts(data.final.ts.test.brut, start = c(2006,1), frequency=12)
 
 
@@ -413,7 +412,7 @@ yPreditfinal <- ((yEstimefinal.3+ yEstimefinal.5)*2 + yEstimefinal.7)/5
 
 ```{r}
 
-print(yEstime.final.3)
+print(yEstimefinal.3)
 print(yEstimefinal.5)
 print(yEstimefinal.7)
 ```
