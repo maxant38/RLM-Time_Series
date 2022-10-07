@@ -371,19 +371,45 @@ On entraine notre modèle final:
 
 ```{r}
 
-data <- read.table("Data_app.txt", header=TRUE)
+data.app.brut <- read.table("Data_app.txt", header=TRUE)
+data.app <- data.app.brut[,-2]
+data.test <- read.table("Data_test.txt", header=TRUE)
+data.final <- rbind(data.app, data.test)
+data.final.ts <- ts(data.final, start = c(2006,1), frequency=12)
+
+data.final.train <- data.final.ts[1:168,]
+data.final.test  <- data.final.ts[169:180,]
 
 
-lm3.fit <- lm(kwh ~ htdd + date + cldd + I(date^2), data= dataTrain )
-yEstime3 <- predict(lm3.fit, newdata = dataTest)
-residus3 <- yTest-yEstime3
-compute_rmse(residus3)
 
-lm5.fit <- lm(sqrt(kwh) ~ htdd +  date + cldd  + I(date^2) , data= dataTrain )
-yEstime5 <- predict(lm5.fit, newdata = dataTest)
+dataTrain <- ts(dataTrainBrut, start = c(2006,1), frequency=12)
+dataTest <- ts(dataTestBrut, start = c(2019,1), frequency=12)
+
+
+
+
+yTest <- dataTemp[157:168,2]
+
+plot(dataTrain)
+plot(dataTest)
+
+dataTrainFinal <- ts(data, start = c(2006,1), frequency=12)
+
+
+lm3.fit <- lm(kwh ~ htdd + date + cldd + I(date^2), data= dataTrainFinal)
+lm5.fit <- lm(sqrt(kwh) ~ htdd +  date + cldd  + I(date^2) , data= dataTrainFinal )
+
+
+
+
+
+
+
+
+yEstime3 <- predict(lm3.fit, newdata = dataTestFinal)
+
+yEstime5 <- predict(lm5.fit, newdata = dataTestFinal)
 yEstime5 <- yEstime5^2
-residus5 <- yTest-yEstime5
-compute_rmse(residus5)
 
 
 
@@ -391,10 +417,4 @@ compute_rmse(residus5)
 
 ```
 
-
-
-On fait les prédictions :
-```{r}
-
-```
 
