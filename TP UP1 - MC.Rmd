@@ -331,8 +331,7 @@ On a donc le modèle suivant : SARIMA(p,1,q)(P,1,Q)[12]. Pour définir les param
 library(forecast)
 
 sarimaModel <- auto.arima(dataTrain[,2], D= 1, d=1, approximation = FALSE, seasonal = TRUE)
-#fitBest <- auto.arima(dataTrain[,2])
-#(fit <- arima(diffdataSeriesTwo, order=c(12,1,)))
+
 summary(sarimaModel)
 
 
@@ -341,6 +340,7 @@ myforecasts <- forecast::forecast(sarimaModel, h=12)
 yEstime7 <- myforecasts$mean
 residus7 <- yTest-yEstime7
 compute_rmse(residus7)
+
 
 
 
@@ -366,55 +366,55 @@ compute_rmse(residus7)
 
 
 ```
+**Modèle final**
+
 On obtient une faible RMSE : 5,6 . Si j'ajoute le modèle lm6.fit on descend à 4 mais je préfère ne pas l'ajouter car ce modèle contient des prédicteurs non significatif.
 On entraine notre modèle final:
 
 ```{r}
+#load des données er séparation des jeux de donnees
+
 
 data.app.brut <- read.table("Data_app.txt", header=TRUE)
 data.app <- data.app.brut[,-2]
 data.test <- read.table("Data_test.txt", header=TRUE)
 data.final <- rbind(data.app, data.test)
+
+#pour modèle regression multiples
 data.final.ts <- ts(data.final, start = c(2006,1), frequency=12)
-
-data.final.train <- data.final.ts[1:168,]
-data.final.test  <- data.final.ts[169:180,]
-
-
-
-dataTrain <- ts(dataTrainBrut, start = c(2006,1), frequency=12)
-dataTest <- ts(dataTestBrut, start = c(2019,1), frequency=12)
+data.final.ts.train.brut <- data.final.ts[1:168,]
+data.final.ts.test.brut <- data.final.ts[169:180,]
+data.final.ts.train <- ts(data.final.ts.train.brut, start = c(2006,1), frequency=12)
+data.final.ts.test <- ts(data.final.ts.test.brut, start = c(2006,1), frequency=12)
 
 
+#pour modèle sarima
+data.final.train.sarima <- ts(data.app.brut[,2], start = c(2006,1), frequency=12)
 
 
-yTest <- dataTemp[157:168,2]
-
-plot(dataTrain)
-plot(dataTest)
-
-dataTrainFinal <- ts(data, start = c(2006,1), frequency=12)
+#training
+lm3.fit <- lm(kwh ~ htdd + date + cldd + I(date^2), data= data.final.ts.train)
+lm5.fit <- lm(sqrt(kwh) ~ htdd +  date + cldd  + I(date^2) , data= data.final.ts.train )
+sarimaModel <- auto.arima(data.final.train.sarima, D= 1, d=1, approximation = FALSE, seasonal = TRUE)
 
 
-lm3.fit <- lm(kwh ~ htdd + date + cldd + I(date^2), data= dataTrainFinal)
-lm5.fit <- lm(sqrt(kwh) ~ htdd +  date + cldd  + I(date^2) , data= dataTrainFinal )
+#prediction
+yEstime.final.3 <- predict(lm3.fit, newdata = data.final.ts.test)
+yEstimefinal.5 <- predict(lm5.fit, newdata = data.final.ts.test)
+yEstimefinal.5  <- yEstimefinal.5^2
+forecasts.final <- forecast::forecast(sarimaModel, h=12) 
+yEstimefinal.7 <- forecasts.final$mean
+
+yPreditfinal <- (yEstime.final.3+ yEstimefinal.5 + yEstimefinal.7)/3
 
 
+```
 
 
-
-
-
-
-yEstime3 <- predict(lm3.fit, newdata = dataTestFinal)
-
-yEstime5 <- predict(lm5.fit, newdata = dataTestFinal)
-yEstime5 <- yEstime5^2
-
+```{r}
 
 
 
 
 ```
-
 
