@@ -73,13 +73,10 @@ lm0.fit <- lm(kwh ~ htdd  )
 #On ajoute le prédicteur cldd
 lm1.fit <- lm(kwh ~ htdd + cldd )
 
-#On compare les trois modèles
-
 #On ajoute le prédicteur date
 lm2.fit <- lm(kwh ~ date + htdd + cldd)
 
-
-
+#On compare les trois modèles
 summary(lm0.fit)
 summary(lm1.fit)
 summary(lm2.fit)
@@ -152,12 +149,9 @@ Création du jeu de donner pour entrainer nos modèles et celui pour les tester.
 
 dataTrainBrut <- dataTemp[1:156,]
 dataTestBrut <- dataTemp[157:168,]
-#[157:168,]
 dataTrain <- ts(dataTrainBrut, start = c(2006,1), frequency=12)
 dataTest <- ts(dataTestBrut, start = c(2019,1), frequency=12)
-
 yTest <- dataTemp[157:168,2]
-
 plot(dataTrain)
 plot(dataTest)
 
@@ -169,7 +163,6 @@ plot(dataTest)
 
 ```{r}
 #la fonction attend comme paramètre la somme des résidus. Dans notre cas , ils sont accessibles via la commande modele_regression$residuals
-
 compute_rmse <- function(x){
   sqrt(mean(x^2))
 }
@@ -243,10 +236,8 @@ De même pour le graphique Fitted vs Residuals/prédicteurs significatifs. Par c
 dataTempTwo <- data[, 2]
 dataSeriesTwo <- ts(data=dataTempTwo, start = c(2006,1), freq=12 )
 
-
 acfSerie <- acf( as.vector(dataSeriesTwo), lag=20, ylim = c(-1,1), 
           main = expression(paste("ACF empirique de la série ", y[t])), xlab="Décalage h", lwd=2)
-
 
 pacfSerie <- pacf(
   
@@ -270,17 +261,14 @@ Je vais stationnariser la série en faisant une différenciation simple.
 
 ```{r}
 
-
 diffdataSeriesTwo<- diff(dataSeriesTwo)
 mu <- mean(diffdataSeriesTwo)
-
 op <- par(mfrow = c(2,1), mex=0.9)
 plot(diffdataSeriesTwo, type='o', main = expression(paste("Série différenciée ")),
      xlab="Temps", ylab = expression(y[t]))
 abline(h=mu, col="red", lwd=2)
 plot(dataSeriesTwo, type='l', xlab="Temps", ylab="kwh",
      main="Série initiale kwh",cex.main=1)
-
 grid()
 
 
@@ -304,13 +292,11 @@ On observe de fortes variations saisonnières et une autocorrélation forte au l
 ```{r}
 
 acfSerieDiff <- acf( as.vector(diffdataSeriesTwo), lag=50, ylim = c(-1,1), 
-          main = expression(paste("ACF empirique de la série ", y[t])), xlab="Décalage h", lwd=2)
-
-
+          main = expression(paste("ACF empirique de la série ")), xlab="Décalage h", lwd=2)
 pacfSerieDiff <- pacf(
   
    as.vector(diffdataSeriesTwo), lag=50, ylim = c(-1,1), 
-          main = expression(paste("PACF empirique de la série ", y[t])), xlab="Décalage h", lwd=2
+          main = expression(paste("PACF empirique de la série ")), xlab="Décalage h", lwd=2
 )
 
 
@@ -329,25 +315,12 @@ On a donc le modèle suivant : SARIMA(p,1,q)(P,1,Q)[12]. Pour définir les param
 
 ```{r}
 library(forecast)
-
 sarimaModel <- auto.arima(dataTrain[,2], D= 1, d=1, approximation = FALSE, seasonal = TRUE)
-
 summary(sarimaModel)
-
-
-
 myforecasts <- forecast::forecast(sarimaModel, h=12) 
 yEstime7 <- myforecasts$mean
 residus7 <- yTest-yEstime7
 compute_rmse(residus7)
-
-
-
-
-
-
-
-
 ```
 
 On obtient donc un modèle SARIMA(0,1,2)(0,1,1)[12]. Sa RMSE est plus élevée que celle obtenue avec le modèle lm5.fit. 
@@ -415,5 +388,6 @@ yPreditfinal <- ((yEstimefinal.3+ yEstimefinal.5)*2 + yEstimefinal.7)/5
 print(yEstimefinal.3)
 print(yEstimefinal.5)
 print(yEstimefinal.7)
+print(yPreditfinal)
 ```
 
