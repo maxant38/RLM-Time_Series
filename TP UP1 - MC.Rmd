@@ -127,8 +127,6 @@ On constate que ces valeurs ne sont pas abérantes.
 
 ```{r}
 plot(lm2.fit$residuals)
-
-
 ```
 On voit aussi que les résidus bruts sont influencé par leur index càd sont influencé par le temps étant donné que les index sont en fonction du temps.
 
@@ -179,7 +177,7 @@ compute_rmse <- function(x){
 ```
 
 
-Je teste les différentes améliorations suggérées précédmeent (transofmation ^2 , sqrt, log). Et je compare les modèles en calculant le RMSE.
+Je teste les différentes améliorations suggérées précédmeent (transofmation ^2 , sqrt, log). Et je compare les modèles en calculant le RMSE/analyse du summary.
 ```{r}
 
 lm2.fit <- lm(kwh ~ date + htdd + cldd, data = dataTrain)
@@ -187,37 +185,54 @@ yEstime2 <- predict(lm2.fit, newdata = dataTest)
 residus2 <- yTest-yEstime2
 compute_rmse(residus2)
 
-lm3.fit <- lm(kwh ~ cldd + date + cldd + I(date^2), data= dataTrain )
+lm3.fit <- lm(kwh ~ htdd + date + cldd + I(date^2), data= dataTrain )
 yEstime3 <- predict(lm3.fit, newdata = dataTest)
 residus3 <- yTest-yEstime3
 compute_rmse(residus3)
 
-lm4.fit <- lm(log(kwh) ~ cldd + date + cldd + I(date^2), data= dataTrain )
+lm4.fit <- lm(log(kwh) ~ htdd + date + cldd + I(date^2), data= dataTrain )
 yEstime4 <- predict(lm4.fit, newdata = dataTest)
 yEstime4 <- exp(yEstime4)
 residus4 <- yTest-yEstime4
 compute_rmse(residus4)
 
-lm5.fit <- lm(sqrt(kwh) ~ cldd + date + cldd  + I(date^2), data= dataTrain )
+lm5.fit <- lm(sqrt(kwh) ~ htdd +  date + cldd  + I(date^2) , data= dataTrain )
 yEstime5 <- predict(lm5.fit, newdata = dataTest)
 yEstime5 <- yEstime5^2
 residus5 <- yTest-yEstime5
 compute_rmse(residus5)
 
 
+lm6.fit <- lm(kwh ~ htdd + date + cldd  + sqrt(date)+ I(date^2), data= dataTrain )
+yEstime6 <- predict(lm6.fit, newdata = dataTest)
+residus6 <- yTest-yEstime6
+compute_rmse(residus6)
 
+summary(lm2.fit)
+summary(lm3.fit)
+summary(lm5.fit)
+summary(lm5.fit)
+summary(lm6.fit)
 
 
 
 ```
-D'après les résultats, lm5.fit est notre meilleur modèle.
+D'après les résultats, lm.fit3/lm5.fit/lm6.fit ont les meilleures RMSE. Mais lm6.fit a deux de ces prédicteurs qui ne sont pas significatifs.
 
 ```{r}
 summary(lm5.fit)
 plot(lm5.fit)
 
+summary(lm3.fit)
+plot(lm3.fit)
 ```
+lm5.fit :
+
 On voti que tous les prédicteurs sont significatifs. Le F-statistic est très haut. On constate aussi que sur le graphe Fitted vs Residuals, notre modèle est meilleur car la "droite rouge" est bien horizontale (vs la forme en U du mdèle lm2.fit).La seule chose qui est "moins" bien est l'effet "lighter tail" qui est un peu plus accentué (vs lm2.fit).
+
+lm3.fit:
+De même pour le graphique Fitted vs Residuals/prédicteurs significatifs. Par contre les données sont "mieux" normalement distribué car elles suivent plus le graphique qq-plot.
+
 
 *Q4*
 
@@ -315,48 +330,71 @@ On a donc le modèle suivant : SARIMA(p,1,q)(P,1,Q)[12]. Pour définir les param
 ```{r}
 library(forecast)
 
-fitBest <- auto.arima(dataTrain[,2], D= 1, d=1, approximation = FALSE, seasonal = TRUE)
+sarimaModel <- auto.arima(dataTrain[,2], D= 1, d=1, approximation = FALSE, seasonal = TRUE)
 #fitBest <- auto.arima(dataTrain[,2])
 #(fit <- arima(diffdataSeriesTwo, order=c(12,1,)))
-summary(fitBest)
-#checkresiduals(fitBest)
-
-#yEstime6 <- predict(fitBest, newdata = dataTest)
-#residus6 <- yTest-yEstime6
-#compute_rmse(residus6)
+summary(sarimaModel)
 
 
 
-
-myforecasts <- forecast::forecast(fitBest, h=12) 
-yEstime6 <- myforecasts$mean
-residus6 <- yTest-yEstime6
-compute_rmse(residus6)
-
-yEstime7 <- (yEstime6 + yEstime5)/2
+myforecasts <- forecast::forecast(sarimaModel, h=12) 
+yEstime7 <- myforecasts$mean
 residus7 <- yTest-yEstime7
 compute_rmse(residus7)
 
 
 
-yEstime9 <- (yEstime4 + yEstime5)/2
-residus9 <- yTest-yEstime9
-compute_rmse(residus9)
 
 
-yEstime10 <- (yEstime4 + yEstime5 + yEstime6)/3
-residus10 <- yTest-yEstime10
-compute_rmse(residus10)
+
+
+```
+
+On obtient donc un modèle SARIMA(0,1,2)(0,1,1)[12]. Sa RMSE est plus élevée que celle obtenue avec le modèle lm5.fit. 
+
+
+Je vais essayer de combiener les résultats de ces deux modèles.
+
+
+```{r}
+
+
+yEstimeFinal <- (yEstime3 + yEstime5 + yEstime7 )/3
+residus7 <- yTest - yEstimeFinal
+compute_rmse(residus7)
+
+
+
+```
+On obtient une faible RMSE : 5,6 . Si j'ajoute le modèle lm6.fit on descend à 4 mais je préfère ne pas l'ajouter car ce modèle contient des prédicteurs non significatif.
+On entraine notre modèle final:
+
+```{r}
+
+data <- read.table("Data_app.txt", header=TRUE)
+
+
+lm3.fit <- lm(kwh ~ htdd + date + cldd + I(date^2), data= dataTrain )
+yEstime3 <- predict(lm3.fit, newdata = dataTest)
+residus3 <- yTest-yEstime3
+compute_rmse(residus3)
+
+lm5.fit <- lm(sqrt(kwh) ~ htdd +  date + cldd  + I(date^2) , data= dataTrain )
+yEstime5 <- predict(lm5.fit, newdata = dataTest)
+yEstime5 <- yEstime5^2
+residus5 <- yTest-yEstime5
+compute_rmse(residus5)
+
+
+
 
 
 ```
 
 
 
-
-
-
+On fait les prédictions :
 ```{r}
- PRENSER A RE ENTRAINE RLE MODELE !!!!!!!!!!!!!!!!!
+
 ```
 
